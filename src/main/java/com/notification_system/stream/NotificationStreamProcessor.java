@@ -27,15 +27,15 @@ public class NotificationStreamProcessor {
     @Bean
     public KStream<String, NotificationEvent> process(StreamsBuilder builder) {
 
-        log.info("🚀 Notification stream processor started");
+        log.info("ðŸš€ Notification stream processor started");
 
-        // 🔥 MULTI-TOPIC SOURCE (AI + normal)
+        // ðŸ”¥ MULTI-TOPIC SOURCE (AI + normal)
         KStream<String, NotificationEvent> source = builder.stream(
                 List.of("notifications", "notifications-high", "notifications-low"),
                 Consumed.with(Serdes.String(), new JsonSerde<>(NotificationEvent.class))
         );
 
-        // ✅ VALIDATION + NORMALIZATION
+        // âœ… VALIDATION + NORMALIZATION
         KStream<String, NotificationEvent> valid = source
                 .filter((key, event) -> {
                     boolean ok = event != null
@@ -45,18 +45,18 @@ public class NotificationStreamProcessor {
                             && !event.getType().isBlank();
 
                     if (!ok) {
-                        log.warn("❌ Dropping invalid event: {}", event);
+                        log.warn("âŒ Dropping invalid event: {}", event);
                     }
                     return ok;
                 })
                 .mapValues(this::normalizeEvent)
                 .peek((k, v) -> log.info(
-                        "📩 Incoming → user={}, type={}, priority={}",
+                        "ðŸ“© Incoming â†’ user={}, type={}, priority={}",
                         v.getUserId(), v.getType(), v.getPriority()
                 ));
 
         // ============================================
-        // 🔥 PRIORITY-BASED ROUTING (AI CORE LOGIC)
+        // ðŸ”¥ PRIORITY-BASED ROUTING (AI CORE LOGIC)
         // ============================================
 
         KStream<String, NotificationEvent>[] priorityBranches = valid.branch(
@@ -70,23 +70,23 @@ public class NotificationStreamProcessor {
         KStream<String, NotificationEvent> normalPriority = priorityBranches[2];
 
         // ============================================
-        // 🔥 HIGH PRIORITY → DIRECT DELIVERY (NO BATCH)
+        // ðŸ”¥ HIGH PRIORITY â†’ DIRECT DELIVERY (NO BATCH)
         // ============================================
 
         highPriority
-                .peek((k, v) -> log.info("🔥 HIGH PRIORITY → instant send: {}", v))
+                .peek((k, v) -> log.info("ðŸ”¥ HIGH PRIORITY â†’ instant send: {}", v))
                 .to("aggregated-notifications",
                         Produced.with(Serdes.String(), new JsonSerde<>(NotificationEvent.class)));
 
         // ============================================
-        // ⚡ NORMAL + LOW → CONTINUE PIPELINE
+        // âš¡ NORMAL + LOW â†’ CONTINUE PIPELINE
         // ============================================
 
         KStream<String, NotificationEvent> processingStream =
                 normalPriority.merge(lowPriority);
 
         // ============================================
-        // 🔁 EXISTING LOGIC (IMMEDIATE + AGGREGATION)
+        // ðŸ” EXISTING LOGIC (IMMEDIATE + AGGREGATION)
         // ============================================
 
         var branches = processingStream.split(Named.as("route-"))
@@ -102,7 +102,7 @@ public class NotificationStreamProcessor {
                 branches.get("route-aggregate");
 
         // ============================================
-        // ⚡ IMMEDIATE EVENTS
+        // âš¡ IMMEDIATE EVENTS
         // ============================================
 
         immediateStream
@@ -110,21 +110,21 @@ public class NotificationStreamProcessor {
                     NotificationEvent out = new NotificationEvent();
                     out.setUserId(event.getUserId());
                     out.setType(event.getType());
-                    out.setPriority(event.getPriority()); // ✅ preserve priority
+                    out.setPriority(event.getPriority()); // âœ… preserve priority
                     out.setCount(1);
                     out.setMessage(buildImmediateMessage(event.getType()));
                     out.setTimestamp(System.currentTimeMillis());
                     return new KeyValue<>(event.getUserId(), out);
                 })
                 .peek((k, v) -> log.info(
-                        "⚡ Immediate notification → user={}, type={}, priority={}",
+                        "âš¡ Immediate notification â†’ user={}, type={}, priority={}",
                         v.getUserId(), v.getType(), v.getPriority()
                 ))
                 .to("aggregated-notifications",
                         Produced.with(Serdes.String(), new JsonSerde<>(NotificationEvent.class)));
 
         // ============================================
-        // 📊 AGGREGATION (WINDOW)
+        // ðŸ“Š AGGREGATION (WINDOW)
         // ============================================
 
         KGroupedStream<String, NotificationEvent> grouped =
@@ -147,7 +147,7 @@ public class NotificationStreamProcessor {
                         (userId, newEvent, aggEvent) -> {
                             aggEvent.setUserId(userId);
                             aggEvent.setType(newEvent.getType());
-                            aggEvent.setPriority(newEvent.getPriority()); // ✅ keep priority
+                            aggEvent.setPriority(newEvent.getPriority()); // âœ… keep priority
                             aggEvent.setCount(aggEvent.getCount() + 1);
                             aggEvent.setTimestamp(System.currentTimeMillis());
                             return aggEvent;
@@ -172,7 +172,7 @@ public class NotificationStreamProcessor {
                 })
                 .filter((key, event) -> event.getCount() >= 1)
                 .peek((k, v) -> log.info(
-                        "📊 Aggregated → user={}, type={}, count={}, priority={}",
+                        "ðŸ“Š Aggregated â†’ user={}, type={}, count={}, priority={}",
                         v.getUserId(), v.getType(), v.getCount(), v.getPriority()
                 ))
                 .to("aggregated-notifications",

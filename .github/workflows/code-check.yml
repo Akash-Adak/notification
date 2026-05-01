@@ -2,12 +2,12 @@ name: Code Quality Check
 
 on:
   push:
-    branches: [ "master" ]
+    branches: ["master"]
   pull_request:
-    branches: [ "master" ]
+    branches: ["master"]
 
 jobs:
-  test:
+  verify:
     runs-on: ubuntu-latest
 
     steps:
@@ -17,15 +17,12 @@ jobs:
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
-          java-version: '17'
-          distribution: 'temurin'
-          cache: maven   # 🔥 built-in cache (no need for separate cache step)
+          java-version: "17"
+          distribution: "temurin"
+          cache: maven
 
-      - name: Verify Build (compile)
-        run: mvn clean compile
+      - name: Make Maven Wrapper executable
+        run: chmod +x mvnw
 
-      - name: Run Lint (Checkstyle)
-        run: mvn checkstyle:check
-
-      - name: Run Unit Tests (JUnit)
-        run: mvn test
+      - name: Run Build + Lint + Tests
+        run: ./mvnw -B clean verify
